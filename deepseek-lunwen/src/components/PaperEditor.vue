@@ -1,13 +1,19 @@
 <script setup>
-import { ref, watch, computed } from 'vue';
+import { ref, watch, computed, inject } from 'vue';
 import { ElMessage } from 'element-plus';
 import axios from 'axios';
+import { Document, Download, Delete, Upload, Collection } from '@element-plus/icons-vue';
+import { marked } from 'marked';
+import FileUploader from './FileUploader.vue';
+import TemplateLibrary from './TemplateLibrary.vue';
 
 const paperTitle = ref('');
 const paperContent = ref('');
 const editorTabs = ref('write');
 const isLoading = ref(false);
 const savedStatus = ref('');
+const showUploader = ref(false);
+const showTemplates = ref(false);
 
 // 保存草稿
 const saveDraft = () => {
@@ -51,6 +57,34 @@ const clearEditor = () => {
     message: '编辑器已清空',
     type: 'info'
   });
+};
+
+// 处理文件上传
+const handleFileLoaded = (data) => {
+  if (paperTitle.value || paperContent.value) {
+    if (!confirm('当前编辑器中有内容，是否覆盖？')) {
+      return;
+    }
+  }
+
+  paperTitle.value = data.title;
+  paperContent.value = data.content;
+  saveDraft();
+  showUploader.value = false;
+};
+
+// 处理模板选择
+const handleTemplateSelect = (data) => {
+  if (paperTitle.value || paperContent.value) {
+    if (!confirm('当前编辑器中有内容，是否覆盖？')) {
+      return;
+    }
+  }
+
+  paperTitle.value = data.title;
+  paperContent.value = data.content;
+  saveDraft();
+  showTemplates.value = false;
 };
 
 // 自动保存
@@ -101,28 +135,45 @@ const wordCount = computed(() => {
     </div>
 
     <div class="editor-actions">
-      <el-button type="primary" @click="saveDraft" :icon="Document">保存草稿</el-button>
-      <el-button @click="loadDraft" :icon="Download">载入草稿</el-button>
-      <el-button @click="clearEditor" :icon="Delete">清空</el-button>
-      <el-button type="success" @click="exportMarkdown" :icon="Download">导出</el-button>
+      <div class="action-group">
+        <el-button type="primary" @click="saveDraft" :icon="Document">保存草稿</el-button>
+        <el-button @click="loadDraft" :icon="Download">载入草稿</el-button>
+        <el-button @click="clearEditor" :icon="Delete">清空</el-button>
+        <el-button type="success" @click="exportMarkdown" :icon="Download">导出</el-button>
+      </div>
+
+      <div class="action-group">
+        <el-button type="info" @click="showUploader = !showUploader" :icon="Upload">
+          {{ showUploader ? '隐藏上传器' : '上传文件' }}
+        </el-button>
+        <el-button type="warning" @click="showTemplates = !showTemplates" :icon="Collection">
+          {{ showTemplates ? '隐藏模板' : '论文模板' }}
+        </el-button>
+      </div>
+
       <span class="save-status">{{ savedStatus }}</span>
     </div>
 
+    <FileUploader v-if="showUploader" :onFileLoaded="handleFileLoaded" />
+
+    <TemplateLibrary v-if="showTemplates" :onTemplateSelect="handleTemplateSelect" />
+
     <div class="editor-body" v-if="editorTabs === 'write'">
-      <el-input 
-        v-model="paperTitle" 
-        placeholder="输入论文标题" 
-        class="title-input" 
-        maxlength="100" 
+      <el-input
+        v-model="paperTitle"
+        placeholder="输入论文标题"
+        class="title-input"
+        maxlength="100"
         show-word-limit
       />
-      <el-input 
-        v-model="paperContent" 
-        type="textarea" 
-        placeholder="输入论文内容，支持Markdown格式" 
-        :rows="20" 
+      <el-input
+        v-model="paperContent"
+        type="textarea"
+        placeholder="输入论文内容，支持Markdown格式"
+        :rows="25"
         class="content-input"
-        resize="none"
+        resize="vertical"
+        :autosize="{ minRows: 20, maxRows: 40 }"
       />
       <div class="editor-footer">
         <span class="word-count">字数统计: {{ wordCount }}</span>
@@ -132,7 +183,7 @@ const wordCount = computed(() => {
     <div class="preview-area" v-else>
       <div class="preview-content">
         <h1>{{ paperTitle || '无标题' }}</h1>
-        <div v-html="marked(paperContent)"></div>
+        <div v-html="marked.parse(paperContent || '')"></div>
       </div>
     </div>
   </div>
@@ -140,14 +191,16 @@ const wordCount = computed(() => {
 
 <style scoped>
 .paper-editor {
-  flex: 1;
-  background-color: white;
+  flex: 3; /* 增加编辑器的比例 */
+  background-color: var(--card-bg-color);
   border-radius: 8px;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow);
   padding: 20px;
   display: flex;
   flex-direction: column;
-  max-width: 800px;
+  min-width: 0; /* 防止flex子项溢出 */
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
+  width: 100%;
 }
 
 .editor-header {
@@ -155,7 +208,7 @@ const wordCount = computed(() => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
-  border-bottom: 1px solid #ebeef5;
+  border-bottom: 1px solid var(--border-color);
   padding-bottom: 10px;
 }
 
@@ -165,10 +218,17 @@ const wordCount = computed(() => {
 
 .editor-actions {
   display: flex;
-  gap: 10px;
+  gap: 15px;
   margin-bottom: 20px;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: space-between;
+}
+
+.action-group {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .title-input {
@@ -180,6 +240,12 @@ const wordCount = computed(() => {
   font-family: 'Courier New', Courier, monospace;
 }
 
+.editor-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
 .editor-footer {
   margin-top: 10px;
   display: flex;
@@ -187,27 +253,62 @@ const wordCount = computed(() => {
 }
 
 .word-count {
-  color: #909399;
+  color: var(--text-secondary);
   font-size: 0.9em;
 }
 
 .save-status {
   margin-left: auto;
-  color: #909399;
+  color: var(--text-secondary);
   font-size: 0.9em;
 }
 
 .preview-area {
   flex: 1;
   overflow: auto;
-  border: 1px solid #dcdfe6;
+  border: 1px solid var(--border-color);
   border-radius: 4px;
   padding: 20px;
-  background-color: #fafafa;
+  background-color: var(--preview-bg);
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .preview-content {
   max-width: 800px;
   margin: 0 auto;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .paper-editor {
+    padding: 15px;
+  }
+
+  .editor-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .editor-tabs {
+    margin-top: 10px;
+    align-self: center;
+  }
+
+  .editor-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .action-group {
+    justify-content: center;
+    margin-bottom: 10px;
+  }
+
+  .save-status {
+    width: 100%;
+    text-align: center;
+    margin-top: 10px;
+    margin-left: 0;
+  }
 }
 </style>

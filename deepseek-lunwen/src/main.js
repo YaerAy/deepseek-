@@ -1,9 +1,11 @@
 import './assets/main.css'
+import './assets/theme.css'
 
 import { createApp } from 'vue'
 import App from './App.vue'
 import ElementPlus from 'element-plus'
 import 'element-plus/dist/index.css'
+import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 import { marked } from 'marked'
 
 // 配置marked，使其能够安全地解析用户的markdown内容
@@ -14,16 +16,15 @@ marked.setOptions({
   mangle: false
 });
 
-// 创建全局marked方法
+// 创建Vue应用实例
 const app = createApp(App)
 
-// 添加全局方法
-app.config.globalProperties.marked = (content) => {
-  if (!content) return '';
-  return marked(content);
-}
-
 // 注册Element Plus
-app.use(ElementPlus)
+app.use(ElementPlus, { size: 'default' })
+
+// 注册所有图标
+for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
+  app.component(key, component)
+}
 
 app.mount('#app')

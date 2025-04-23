@@ -1,0 +1,97 @@
+/* 亮色模式（默认） */
+:root {
+  --bg-color: #f5f7fa;
+  --card-bg-color: #ffffff;
+  --text-color: #333333;
+  --text-secondary: #606266;
+  --border-color: #ebeef5;
+  --highlight-color: #409EFF;
+  --header-bg: #409EFF;
+  --header-text: #ffffff;
+  --footer-bg: #f0f2f5;
+  --footer-text: #606266;
+  --preview-bg: #fafafa;
+  --markdown-bg: #f5f7fa;
+  --shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+}
+
+/* 暗色模式 */
+.dark-mode {
+  --bg-color: #1a1a1a;
+  --card-bg-color: #2b2b2b;
+  --text-color: #e0e0e0;
+  --text-secondary: #a0a0a0;
+  --border-color: #3a3a3a;
+  --highlight-color: #409EFF;
+  --header-bg: #1e1e1e;
+  --header-text: #e0e0e0;
+  --footer-bg: #1e1e1e;
+  --footer-text: #a0a0a0;
+  --preview-bg: #2a2a2a;
+  --markdown-bg: #2a2a2a;
+  --shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.3);
+}
+
+/* 全局样式 */
+body {
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* 卡片样式 */
+.el-card {
+  background-color: var(--card-bg-color);
+  color: var(--text-color);
+  border-color: var(--border-color);
+  box-shadow: var(--shadow);
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+/* 输入框样式 */
+.el-input__inner, .el-textarea__inner {
+  background-color: var(--card-bg-color);
+  color: var(--text-color);
+  border-color: var(--border-color);
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+/* 暗色模式下的Element Plus组件覆盖 */
+.dark-mode .el-button--default {
+  background-color: #2a2a2a;
+  border-color: #3a3a3a;
+  color: #e0e0e0;
+}
+
+.dark-mode .el-collapse {
+  border-color: var(--border-color);
+}
+
+.dark-mode .el-collapse-item__header {
+  background-color: var(--card-bg-color);
+  color: var(--text-color);
+  border-color: var(--border-color);
+}
+
+.dark-mode .el-collapse-item__content {
+  background-color: var(--card-bg-color);
+  color: var(--text-color);
+}
+
+.dark-mode .el-radio-button__inner {
+  background-color: var(--card-bg-color);
+  color: var(--text-color);
+  border-color: var(--border-color);
+}
+
+.dark-mode .el-empty__description {
+  color: var(--text-secondary);
+}
+
+/* 过渡动画 */
+.theme-transition {
+  transition: background-color 0.3s ease, 
+              color 0.3s ease, 
+              border-color 0.3s ease, 
+              box-shadow 0.3s ease;
+}
