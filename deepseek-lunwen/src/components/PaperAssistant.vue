@@ -8,6 +8,7 @@ const apiKey = ref('');
 const userPrompt = ref('');
 const isLoading = ref(false);
 const isStreaming = ref(false);
+const reduceAIDetection = ref(true); // 默认启用降低AI检测率
 const streamingContent = ref('');
 const streamingReasoning = ref('');
 const assistantResponses = ref([]);
@@ -39,6 +40,20 @@ watch(selectedAssistantType, (newType) => {
     userPrompt.value = presetPrompts[newType];
   }
 });
+
+// 获取助手类型的显示名称
+const getAssistantTypeName = (type) => {
+  const names = {
+    outline: '大纲生成',
+    abstract: '摘要润色',
+    polish: '内容润色',
+    reference: '引用格式化',
+    translate: '翻译助手',
+    custom: '自定义'
+  };
+
+  return names[type] || '自定义';
+};
 
 // 保存API密钥
 const saveApiKey = () => {
@@ -80,17 +95,16 @@ const sendToDeepSeekApi = async () => {
   try {
     // 准备请求参数
     const requestParams = {
-      messages: [
-        { role: 'system', content: '你是一个专业的学术论文写作助手。' },
-        { role: 'user', content: userPrompt.value }
-      ],
+      assistantType: selectedAssistantType.value, // 使用选择的助手类型
+      userPrompt: userPrompt.value,
       stream: true,
       max_tokens: 4000,
-      apiKey: apiKey.value // 将API密钥传递给后端
+      apiKey: apiKey.value, // 将API密钥传递给后端
+      reduceAIDetection: reduceAIDetection.value // 传递降低AI检测率的选项
     };
 
     // 创建EventSource连接
-    const eventSource = new EventSource(`http://localhost:3000/api/chat?data=${encodeURIComponent(JSON.stringify(requestParams))}`);
+    const eventSource = new EventSource(`http://localhost:3000/api/assistant?data=${encodeURIComponent(JSON.stringify(requestParams))}`);
 
     // 监听消息事件
     eventSource.onmessage = (event) => {
@@ -106,6 +120,7 @@ const sendToDeepSeekApi = async () => {
           response: streamingContent.value,
           reasoning: streamingReasoning.value,
           showReasoning: false,
+          assistantType: selectedAssistantType.value, // 保存助手类型
           timestamp: new Date().toLocaleString()
         });
 
@@ -121,6 +136,15 @@ const sendToDeepSeekApi = async () => {
 
       try {
         const data = JSON.parse(event.data);
+
+        // 处理错误消息
+        if (data.error) {
+          ElMessage.error(data.message || '生成过程中发生错误');
+          eventSource.close();
+          isStreaming.value = false;
+          isLoading.value = false;
+          return;
+        }
 
         // 处理特殊标记
         if (data.type === 'switch_to_content') {
@@ -156,7 +180,7 @@ const sendToDeepSeekApi = async () => {
   }
 };
 
-// 非流式请求的备用方法
+// 非流式请求的备用方法（如果需要可以使用）
 const sendToDeepSeekApiNonStream = async () => {
   if (!apiKey.value) {
     ElMessage.error('请先设置DeepSeek API密钥');
@@ -176,14 +200,13 @@ const sendToDeepSeekApiNonStream = async () => {
 
   try {
     // 调用后端服务器API
-    const response = await axios.post('http://localhost:3000/api/chat', {
-      messages: [
-        { role: 'system', content: '你是一个专业的学术论文写作助手。' },
-        { role: 'user', content: userPrompt.value }
-      ],
+    const response = await axios.post('http://localhost:3000/api/assistant', {
+      assistantType: selectedAssistantType.value,
+      userPrompt: userPrompt.value,
       stream: false,
       max_tokens: 4000,
-      apiKey: apiKey.value // 将API密钥传递给后端
+      apiKey: apiKey.value, // 将API密钥传递给后端
+      reduceAIDetection: reduceAIDetection.value // 传递降低AI检测率的选项
     });
 
     // 提取响应内容
@@ -196,6 +219,7 @@ const sendToDeepSeekApiNonStream = async () => {
       response: content,
       reasoning: reasoningContent, // 存储推理过程
       showReasoning: false, // 默认隐藏推理过程
+      assistantType: selectedAssistantType.value, // 保存助手类型
       timestamp: new Date().toLocaleString()
     });
 
@@ -215,7 +239,7 @@ const sendToDeepSeekApiNonStream = async () => {
       loadingInstance.close();
     }
   }
-};
+}
 
 // 加载历史记录
 const loadResponseHistory = () => {
@@ -235,13 +259,17 @@ const loadResponseHistory = () => {
 
 // 清空历史记录
 const clearHistory = () => {
-  assistantResponses.value = [];
-  localStorage.removeItem('assistantResponses');
-  ElMessage({
-    message: '历史记录已清空',
-    type: 'info'
-  });
+  if (confirm('确定要清空所有历史记录吗？此操作不可恢复。')) {
+    assistantResponses.value = [];
+    localStorage.removeItem('assistantResponses');
+    ElMessage({
+      message: '历史记录已清空',
+      type: 'success'
+    });
+  }
 };
+
+
 
 // 初始化时加载历史记录
 loadResponseHistory();
@@ -318,12 +346,27 @@ const copyToClipboard = (text) => {
         </el-form-item>
 
         <el-form-item>
-          <el-button type="primary" @click="sendToDeepSeekApi" :loading="isLoading">
-            发送请求
-          </el-button>
-          <el-button @click="clearHistory" type="danger" plain>
-            清空历史
-          </el-button>
+          <div class="form-actions">
+            <div class="main-actions">
+              <el-button type="primary" @click="sendToDeepSeekApi" :loading="isLoading">
+                发送请求
+              </el-button>
+              <el-button @click="clearHistory" type="danger" plain>
+                清空历史
+              </el-button>
+            </div>
+
+            <div class="ai-detection-toggle">
+              <el-tooltip content="启用后会使用特殊提示词，使生成内容更像人类撰写，降低AI检测率" placement="top">
+                <el-switch
+                  v-model="reduceAIDetection"
+                  active-text="降低AI检测率"
+                  inactive-text=""
+                  class="ai-detection-switch"
+                />
+              </el-tooltip>
+            </div>
+          </div>
         </el-form-item>
       </el-form>
     </div>
@@ -363,7 +406,7 @@ const copyToClipboard = (text) => {
           <el-collapse-item
             v-for="(item, index) in assistantResponses"
             :key="index"
-            :title="`${item.timestamp} - ${item.prompt.substring(0, 30)}...`"
+            :title="`${item.timestamp} - ${getAssistantTypeName(item.assistantType || 'custom')} - ${item.prompt.substring(0, 30)}...`"
           >
             <div class="response-item">
               <div class="response-prompt">
@@ -604,6 +647,29 @@ const copyToClipboard = (text) => {
 
 .reasoning-bg {
   background-color: rgba(64, 158, 255, 0.05);
+}
+
+/* 表单操作区域样式 */
+.form-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.main-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.ai-detection-toggle {
+  display: flex;
+  align-items: center;
+}
+
+.ai-detection-switch {
+  margin-left: auto;
 }
 
 /* 响应式设计 */

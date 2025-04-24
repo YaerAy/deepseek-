@@ -27,4 +27,7 @@ for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
   app.component(key, component)
 }
 
+// 全局提供marked
+app.config.globalProperties.$marked = marked
+
 app.mount('#app')
